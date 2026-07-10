@@ -23,6 +23,7 @@ from services.rag_service import generate_rag_response
 from database import close_connections, get_pg_connection, release_pg_connection, get_redis_client
 from services.memory_service import consolidate_memories
 from services.auth import get_current_user, RoleChecker, verify_password, create_access_token
+from db_init import verify_postgres
 
 class QueryRequest(BaseModel):
     session_id: str
@@ -55,7 +56,14 @@ async def schedule_nightly_consolidation():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Start consolidation background task
+    # Startup: run DB migrations + seed (idempotent — safe to run on every start)
+    import asyncio as _asyncio
+    loop = _asyncio.get_event_loop()
+    try:
+        await loop.run_in_executor(None, verify_postgres)
+    except Exception as e:
+        print(f"[startup] DB init warning: {e}")
+    # Start memory consolidation background task
     task = asyncio.create_task(schedule_nightly_consolidation())
     yield
     # Shutdown: Cancel background task and close database pools

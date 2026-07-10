@@ -37,19 +37,46 @@ function Login({ onLogin }) {
   const [showSettings, setShowSettings] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [warming, setWarming] = useState(false)
+
+  // Ping the backend on mount so it wakes up before the user submits
+  useEffect(() => {
+    let cancelled = false
+    const warmUp = async () => {
+      try {
+        setWarming(true)
+        // Silent ping — ignore errors, just wake up the server
+        await fetch(`${API}/`, { method: 'GET', signal: AbortSignal.timeout(60000) })
+      } catch (_) { /* cold start or offline — ignore */ }
+      finally { if (!cancelled) setWarming(false) }
+    }
+    warmUp()
+    return () => { cancelled = true }
+  }, [])
 
   const submit = async e => {
     e.preventDefault(); setError(''); setLoading(true)
     // Save server URL before trying to connect
     setApiUrl(serverUrl)
-    try {
-      const r = await apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify(form) })
-      if (!r.ok) { setError('Invalid username or password'); return }
-      const d = await r.json()
-      onLogin(d)
-    } catch (err) {
-      setError(`Cannot reach server at "${serverUrl}". Ensure the backend is running and matches this address. For mobile, use an HTTPS tunnel (e.g. ngrok).`)
-    } finally { setLoading(false) }
+    // Try up to 3 times to handle cold start delays
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const r = await apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify(form) })
+        if (!r.ok) { setError('Invalid username or password'); setLoading(false); return }
+        const d = await r.json()
+        onLogin(d)
+        setLoading(false)
+        return
+      } catch (err) {
+        if (attempt < 3) {
+          setError(`Server warming up… retrying (${attempt}/3)`)
+          await new Promise(res => setTimeout(res, 5000))
+        } else {
+          setError(`Cannot reach server at "${serverUrl}". The server may be starting up — please wait 30 seconds and try again.`)
+        }
+      }
+    }
+    setLoading(false)
   }
 
   return (
@@ -82,7 +109,8 @@ function Login({ onLogin }) {
             />
           </div>
           {error && <p style={{color:'var(--red)',fontSize:12,lineHeight:1.4,marginBottom:12}}>{error}</p>}
-          <button type="submit" className="btn btn-primary" style={{width:'100%',justifyContent:'center'}} disabled={loading}>
+          {warming && !loading && <p style={{color:'var(--text-3)',fontSize:11,marginBottom:8,textAlign:'center'}}>⏳ Connecting to server…</p>}
+          <button type="submit" className="btn btn-primary" style={{width:'100%',justifyContent:'center'}} disabled={loading || warming}>
             {loading ? <span className="spinner"/> : '🔑 Sign In'}
           </button>
         </form>
@@ -108,7 +136,7 @@ function Login({ onLogin }) {
                   style={{fontSize:12,padding:'6px 8px'}}
                 />
                 <p style={{fontSize:10,color:'var(--text-3)',marginTop:4,lineHeight:1.3}}>
-                  For mobile access, expose your local backend using <code>ngrok http 8000</code> and paste the secure <code>https://...</code> URL here.
+                  Cloud backend: <code>https://policy-agent-9773.onrender.com</code>. For local dev, use your local URL or an ngrok tunnel.
                 </p>
               </div>
             </div>

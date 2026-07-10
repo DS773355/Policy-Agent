@@ -1,10 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './index.css'
 
-// In local dev this is http://localhost:8000.
-// For GitHub Pages, set the VITE_API_URL Actions variable in your repo settings
-// to point to your hosted backend (e.g. https://your-app.railway.app).
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// In local dev this defaults to http://localhost:8000.
+// Users can override this URL in the UI (e.g. to use an HTTPS ngrok tunnel for mobile access).
+let API = localStorage.getItem('POLICY_AGENT_API_URL') || import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+const setApiUrl = (url) => {
+  let cleaned = url.trim()
+  if (cleaned.endsWith('/')) {
+    cleaned = cleaned.slice(0, -1)
+  }
+  API = cleaned
+  localStorage.setItem('POLICY_AGENT_API_URL', cleaned)
+}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 let _onUnauthorized = null
@@ -24,17 +32,23 @@ const changeCls   = c => `badge badge-${c}`
 // ── Login ────────────────────────────────────────────────────────────────────
 function Login({ onLogin }) {
   const [form, setForm] = useState({ username: '', password: '' })
+  const [serverUrl, setServerUrl] = useState(API)
+  const [showSettings, setShowSettings] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const submit = async e => {
     e.preventDefault(); setError(''); setLoading(true)
+    // Save server URL before trying to connect
+    setApiUrl(serverUrl)
     try {
       const r = await apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify(form) })
-      if (!r.ok) { setError('Invalid credentials'); return }
+      if (!r.ok) { setError('Invalid username or password'); return }
       const d = await r.json()
       onLogin(d)
-    } catch { setError('Cannot reach server') } finally { setLoading(false) }
+    } catch (err) {
+      setError(`Cannot reach server at "${serverUrl}". Ensure the backend is running and matches this address. For mobile, use an HTTPS tunnel (e.g. ngrok).`)
+    } finally { setLoading(false) }
   }
 
   return (
@@ -53,12 +67,45 @@ function Login({ onLogin }) {
             <label>Password</label>
             <input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="••••••••" required />
           </div>
-          {error && <p style={{color:'var(--red)',fontSize:13,marginBottom:12}}>{error}</p>}
+          {error && <p style={{color:'var(--red)',fontSize:12,lineHeight:1.4,marginBottom:12}}>{error}</p>}
           <button type="submit" className="btn btn-primary" style={{width:'100%',justifyContent:'center'}} disabled={loading}>
             {loading ? <span className="spinner"/> : '🔑 Sign In'}
           </button>
         </form>
-        <p style={{fontSize:12,color:'var(--text-3)',marginTop:20,textAlign:'center'}}>Demo: admin / AdminPass123! &nbsp;|&nbsp; editor / EditorPass123!</p>
+
+        <div style={{marginTop:20,borderTop:'1px solid var(--border)',paddingTop:14}}>
+          <button 
+            type="button" 
+            className="btn btn-secondary" 
+            style={{width:'100%',justifyContent:'center',fontSize:12,padding:'6px 10px'}}
+            onClick={() => setShowSettings(!showSettings)}
+          >
+            ⚙️ {showSettings ? 'Hide Connection Settings' : 'Connection Settings'}
+          </button>
+
+          {showSettings && (
+            <div style={{marginTop:12,padding:10,background:'var(--bg-2)',borderRadius:'var(--radius-sm)',border:'1px solid var(--border)'}}>
+              <div className="form-group" style={{marginBottom:0}}>
+                <label style={{fontSize:11}}>Backend Server URL</label>
+                <input 
+                  value={serverUrl} 
+                  onChange={e=>setServerUrl(e.target.value)} 
+                  placeholder="http://localhost:8000" 
+                  style={{fontSize:12,padding:'6px 8px'}}
+                />
+                <p style={{fontSize:10,color:'var(--text-3)',marginTop:4,lineHeight:1.3}}>
+                  For mobile access, expose your local backend using <code>ngrok http 8000</code> and paste the secure <code>https://...</code> URL here.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{fontSize:11,color:'var(--text-3)',marginTop:20,textAlign:'center',background:'var(--bg-2)',padding:8,borderRadius:6}}>
+          <strong>Demo Accounts:</strong><br/>
+          👤 admin / 🔑 AdminPass123!<br/>
+          👤 editor / 🔑 EditorPass123!
+        </div>
       </div>
     </div>
   )

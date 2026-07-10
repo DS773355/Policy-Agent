@@ -58,14 +58,27 @@ function Login({ onLogin }) {
         <div className="login-logo">🛡️</div>
         <h1>Policy Agent</h1>
         <p>Enterprise Policy Intelligence Platform</p>
-        <form onSubmit={submit}>
+        <form onSubmit={submit} autoComplete="off">
           <div className="form-group">
             <label>Username</label>
-            <input value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="admin" required />
+            <input 
+              value={form.username} 
+              onChange={e=>setForm({...form,username:e.target.value})} 
+              placeholder="admin" 
+              required 
+              autoComplete="off"
+            />
           </div>
           <div className="form-group">
             <label>Password</label>
-            <input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="••••••••" required />
+            <input 
+              type="password" 
+              value={form.password} 
+              onChange={e=>setForm({...form,password:e.target.value})} 
+              placeholder="••••••••" 
+              required 
+              autoComplete="off"
+            />
           </div>
           {error && <p style={{color:'var(--red)',fontSize:12,lineHeight:1.4,marginBottom:12}}>{error}</p>}
           <button type="submit" className="btn btn-primary" style={{width:'100%',justifyContent:'center'}} disabled={loading}>

@@ -1,0 +1,82 @@
+# ==============================================================================
+# Policy AGENT — .gitignore
+# ==============================================================================
+
+# ── Environment & Secrets ──────────────────────────────────────────────────────
+# NEVER commit real .env files with production credentials.
+# .env.example is committed as the template.
+.env
+.env.local
+.env.production
+.env.*.local
+
+# ── Python ─────────────────────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+*.log
+
+# ── Node / Frontend ────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.cache/
+*.tsbuildinfo
+
+# ── Large Binary / Model Files ─────────────────────────────────────────────────
+# Phi-3 GGUF model and llama.cpp binaries are too large for GitHub (>100 MB limit)
+# Download separately — see README for instructions.
+phi3/
+*.gguf
+*.ggml
+*.bin
+*.safetensors
+
+# ── Large Document Files ────────────────────────────────────────────────────────
+# Don't commit uploaded policy PDFs — they belong in object storage / local data dir
+*.pdf
+*.docx
+DPM-2025-VOLUME-I-Hindi.pdf
+
+# ── Logs ───────────────────────────────────────────────────────────────────────
+*.log
+llama_server*.log
+uvicorn*.log
+output.txt
+
+# ── Database dumps / local data ────────────────────────────────────────────────
+*.sql
+*.dump
+*.db
+*.sqlite3
+
+# ── IDE & OS ───────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Misc scratch / test artifacts ─────────────────────────────────────────────
+test_policy.txt
+Policy Agents/
+"Policy Agents"/

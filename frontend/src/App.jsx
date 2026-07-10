@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import './index.css'
 
 // In local dev this defaults to http://localhost:8000.
+// On Netlify (or any cloud), the VITE_API_URL env var or the production fallback is used.
 // Users can override this URL in the UI (e.g. to use an HTTPS ngrok tunnel for mobile access).
-let API = localStorage.getItem('POLICY_AGENT_API_URL') || import.meta.env.VITE_API_URL || 'http://localhost:8000'
+let API = localStorage.getItem('POLICY_AGENT_API_URL') || import.meta.env.VITE_API_URL || 'https://policy-agent-9773.onrender.com'
 
 const setApiUrl = (url) => {
   let cleaned = url.trim()

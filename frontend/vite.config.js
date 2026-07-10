@@ -6,5 +6,9 @@ import react from '@vitejs/plugin-react'
 // Leave unset for local development — defaults to '/'.
 export default defineConfig({
   plugins: [react()],
+  server: {
+    host: true, // Exposes Vite dev server to the local network (0.0.0.0)
+    port: 5173,
+  },
   base: process.env.VITE_REPO_NAME ? `/${process.env.VITE_REPO_NAME}/` : '/',
 })

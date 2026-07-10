@@ -174,22 +174,49 @@ def consolidate_memories(eps: float = None, min_samples: int = None, score_thres
                     )
                     existing = cur.fetchone()
                     if existing:
-                        cur.execute(
-                            """
-                            UPDATE memory_frozen
-                            SET answer_text = %s, source_chunk_ids = %s, consistency_score = %s, embedding = %s::vector, promoted_at = CURRENT_TIMESTAMP
-                            WHERE id = %s
-                            """,
-                            (best_answer, canonical_chunk_ids, consistency_score, str(canonical_emb), existing[0])
-                        )
+                        try:
+                            cur.execute(
+                                """
+                                UPDATE memory_frozen
+                                SET answer_text = %s, source_chunk_ids = %s, consistency_score = %s, embedding = %s::vector, promoted_at = CURRENT_TIMESTAMP
+                                WHERE id = %s
+                                """,
+                                (best_answer, canonical_chunk_ids, consistency_score, str(canonical_emb), existing[0])
+                            )
+                        except Exception:
+                            try:
+                                conn.rollback()
+                            except Exception:
+                                pass
+                            cur.execute(
+                                """
+                                UPDATE memory_frozen
+                                SET answer_text = %s, source_chunk_ids = %s, consistency_score = %s, embedding = %s, promoted_at = CURRENT_TIMESTAMP
+                                WHERE id = %s
+                                """,
+                                (best_answer, canonical_chunk_ids, consistency_score, json.dumps(canonical_emb), existing[0])
+                            )
                     else:
-                        cur.execute(
-                            """
-                            INSERT INTO memory_frozen (canonical_query, answer_text, source_chunk_ids, consistency_score, embedding)
-                            VALUES (%s, %s, %s, %s, %s::vector)
-                            """,
-                            (canonical_query, best_answer, canonical_chunk_ids, consistency_score, str(canonical_emb))
-                        )
+                        try:
+                            cur.execute(
+                                """
+                                INSERT INTO memory_frozen (canonical_query, answer_text, source_chunk_ids, consistency_score, embedding)
+                                VALUES (%s, %s, %s, %s, %s::vector)
+                                """,
+                                (canonical_query, best_answer, canonical_chunk_ids, consistency_score, str(canonical_emb))
+                            )
+                        except Exception:
+                            try:
+                                conn.rollback()
+                            except Exception:
+                                pass
+                            cur.execute(
+                                """
+                                INSERT INTO memory_frozen (canonical_query, answer_text, source_chunk_ids, consistency_score, embedding)
+                                VALUES (%s, %s, %s, %s, %s)
+                                """,
+                                (canonical_query, best_answer, canonical_chunk_ids, consistency_score, json.dumps(canonical_emb))
+                            )
                 conn.commit()
     finally:
         release_pg_connection(conn)
@@ -208,22 +235,51 @@ def check_frozen_memory(query_text: str) -> str:
     conn = get_pg_connection()
     try:
         with conn.cursor(row_factory=dict_row) as cur:
-            # We use pgvector <=> operator (cosine distance)
-            # Cosine similarity = 1.0 - Cosine distance
-            cur.execute(
-                """
-                SELECT answer_text, (1.0 - (embedding <=> %s::vector)) as similarity
-                FROM memory_frozen
-                ORDER BY embedding <=> %s::vector
-                LIMIT 1
-                """,
-                (str(emb), str(emb))
-            )
-            row = cur.fetchone()
-            if row and row["similarity"] > settings.frozen_memory_similarity_threshold:
-                return row["answer_text"]
-    except Exception:
-        pass
+            # We try pgvector first (this keeps the exact original query & tests intact!)
+            try:
+                cur.execute(
+                    """
+                    SELECT answer_text, (1.0 - (embedding <=> %s::vector)) as similarity
+                    FROM memory_frozen
+                    ORDER BY embedding <=> %s::vector
+                    LIMIT 1
+                    """,
+                    (str(emb), str(emb))
+                )
+                row = cur.fetchone()
+                if row and row["similarity"] > settings.frozen_memory_similarity_threshold:
+                    return row["answer_text"]
+            except Exception:
+                # If pgvector query fails (e.g. column is JSONB or no pgvector extension),
+                # we rollback transaction and fall back to database-independent Python-side check!
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                
+                cur.execute("SELECT answer_text, embedding FROM memory_frozen")
+                rows = cur.fetchall()
+                
+                best_sim = -1.0
+                best_answer = None
+                for row in rows:
+                    row_emb = row["embedding"]
+                    if isinstance(row_emb, str):
+                        try:
+                            row_emb = json.loads(row_emb)
+                        except Exception:
+                            continue
+                    if not row_emb:
+                        continue
+                    sim = calculate_cosine_similarity(emb, row_emb)
+                    if sim > best_sim:
+                        best_sim = sim
+                        best_answer = row["answer_text"]
+                        
+                if best_answer and best_sim > settings.frozen_memory_similarity_threshold:
+                    return best_answer
+    except Exception as e:
+        print(f"Error checking frozen memory: {e}")
     finally:
         release_pg_connection(conn)
     return None

@@ -12,7 +12,7 @@ def get_pg_connection():
     """Get a connection from the PostgreSQL pool."""
     global _pg_pool
     if _pg_pool is None:
-        conninfo = (
+        conninfo = settings.database_url or (
             f"dbname={settings.postgres_db} user={settings.postgres_user} "
             f"password={settings.postgres_password} host={settings.postgres_host} "
             f"port={settings.postgres_port}"
@@ -45,13 +45,21 @@ def get_redis_client():
     """Get the Redis client instance."""
     global _redis_client
     if _redis_client is None:
-        _redis_client = redis.Redis(
-            host=settings.redis_host,
-            port=settings.redis_port,
-            decode_responses=True,
-            protocol=2,
-            socket_connect_timeout=5,
-        )
+        if settings.redis_url:
+            _redis_client = redis.Redis.from_url(
+                settings.redis_url,
+                decode_responses=True,
+                protocol=2,
+                socket_connect_timeout=5,
+            )
+        else:
+            _redis_client = redis.Redis(
+                host=settings.redis_host,
+                port=settings.redis_port,
+                decode_responses=True,
+                protocol=2,
+                socket_connect_timeout=5,
+            )
     return _redis_client
 
 
@@ -68,6 +76,8 @@ def close_connections():
 
 def get_postgres_dsn():
     """Get connection string for migrations."""
+    if settings.database_url:
+        return settings.database_url
     return (
         f"postgresql://{settings.postgres_user}:{settings.postgres_password}"
         f"@{settings.postgres_host}:{settings.postgres_port}/{settings.postgres_db}"

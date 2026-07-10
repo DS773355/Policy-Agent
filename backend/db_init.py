@@ -193,7 +193,7 @@ def verify_postgres(retries=5, delay=3):
     return False
 
 
-def verify_redis(retries=5, delay=3):
+def verify_redis(retries=2, delay=2):
     print("Checking Redis connection...")
     for attempt in range(1, retries + 1):
         try:
@@ -203,7 +203,8 @@ def verify_redis(retries=5, delay=3):
             return True
         except Exception as e:
             print(f"Redis connection attempt {attempt} failed: {e}")
-            time.sleep(delay)
+            if attempt < retries:
+                time.sleep(delay)
     return False
 
 
@@ -233,15 +234,12 @@ if __name__ == "__main__":
 
     print("\n-- Service Status ----------------------------------")
     print(f"  PostgreSQL : {'[OK]'     if pg_ok    else '[FAILED]'}")
-    print(f"  Redis      : {'[OK]'     if redis_ok else '[FAILED]'}")
+    print(f"  Redis      : {'[OK]'     if redis_ok else '[offline - mock mode active]'}")
     print(f"  llama.cpp  : {'[OK]'     if vllm_ok  else '[offline - mock embeddings active]'}")
     print("----------------------------------------------------\n")
 
     if not pg_ok:
         print("ERROR: PostgreSQL is required. Please start it and retry.")
-        sys.exit(1)
-    if not redis_ok:
-        print("ERROR: Redis is required. Please start it and retry.")
         sys.exit(1)
 
     print("OK: Initialisation complete.\n")

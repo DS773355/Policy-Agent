@@ -1,0 +1,18 @@
+# Netlify deployment configuration for Policy Agent frontend
+# This file is located at the root of the repository. Netlify will automatically detect it.
+
+[build]
+  # The directory containing the frontend project
+  base = "frontend"
+
+  # The command to build the project
+  command = "npm run build"
+
+  # The directory containing the built static files (relative to the base directory)
+  publish = "dist"
+
+# Redirect rules to support Single Page Application (SPA) routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

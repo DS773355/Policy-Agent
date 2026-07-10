@@ -204,12 +204,9 @@ def local_rerank(query_text: str, chunks: list[dict], limit: int = 15) -> list[d
         
     # Fallback: slice top limit from RRF list directly
     return chunks[:limit]
-
-
 def context_tagger(chunks: list[dict]) -> list[dict]:
     """
     Assigns tags based on active status: [Changed Content], [Affected Content], [Overlapping Content], or [Source Content].
-    Batch-queries overlap and change status to minimise connection pool usage.
     """
     if not chunks:
         return []
@@ -225,34 +222,42 @@ def context_tagger(chunks: list[dict]) -> list[dict]:
     except Exception:
         pass
 
-    # Collect unique doc_ids and chunk_ids for batch queries
-    chunk_ids = [str(c["chunk_id"]) for c in chunks]
-    doc_ids   = list({str(c["doc_id"]) for c in chunks})
-
-    docs_with_changes  = set()
-    chunks_with_overlap = set()
-
+    tagged_chunks = []
     conn = get_pg_connection()
     try:
         with conn.cursor() as cur:
-            # Batch: which doc_ids have change events?
-            if doc_ids:
-                cur.execute(
-                    "SELECT DISTINCT doc_id::text FROM change_events WHERE doc_id = ANY(%s::uuid[])",
-                    (doc_ids,)
-                )
-                for row in cur.fetchall():
-                    docs_with_changes.add(row[0])
+            for chunk in chunks:
+                chunk_id = str(chunk["chunk_id"])
+                doc_id   = str(chunk["doc_id"])
 
-            # Batch: which chunk_ids appear in any overlap record?
-            # We check each chunk_id as a JSON element in matched_chunk_ids.
-            for cid in chunk_ids:
+                has_changes = False
                 cur.execute(
-                    "SELECT 1 FROM overlap_records WHERE matched_chunk_ids @> %s::jsonb LIMIT 1",
-                    (json.dumps([cid]),)
+                    "SELECT 1 FROM change_events WHERE doc_id = %s LIMIT 1",
+                    (doc_id,)
                 )
                 if cur.fetchone():
-                    chunks_with_overlap.add(cid)
+                    has_changes = True
+
+                has_overlap = False
+                cur.execute(
+                    "SELECT 1 FROM overlap_records WHERE matched_chunk_ids @> %s::jsonb LIMIT 1",
+                    (json.dumps([chunk_id]),)
+                )
+                if cur.fetchone():
+                    has_overlap = True
+
+                if has_changes:
+                    tag = "[Changed Content]"
+                elif doc_id in active_workspace:
+                    tag = "[Affected Content]"
+                elif has_overlap:
+                    tag = "[Overlapping Content]"
+                else:
+                    tag = "[Source Content]"
+
+                item = dict(chunk)
+                item["tag"] = tag
+                tagged_chunks.append(item)
     except Exception as e:
         print(f"[context_tagger] DB query failed: {e}")
         try:
@@ -261,25 +266,6 @@ def context_tagger(chunks: list[dict]) -> list[dict]:
             pass
     finally:
         release_pg_connection(conn)
-
-    # Tag each chunk
-    tagged_chunks = []
-    for chunk in chunks:
-        chunk_id = str(chunk["chunk_id"])
-        doc_id   = str(chunk["doc_id"])
-
-        if doc_id in docs_with_changes:
-            tag = "[Changed Content]"
-        elif doc_id in active_workspace:
-            tag = "[Affected Content]"
-        elif chunk_id in chunks_with_overlap:
-            tag = "[Overlapping Content]"
-        else:
-            tag = "[Source Content]"
-
-        item = dict(chunk)
-        item["tag"] = tag
-        tagged_chunks.append(item)
 
     return tagged_chunks
 

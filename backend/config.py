@@ -4,6 +4,7 @@ import os
 
 class Settings(BaseSettings):
     # PostgreSQL Configuration
+    database_url: str = Field(default="", validation_alias="DATABASE_URL")
     postgres_db: str = Field(default="policy_db", validation_alias="POSTGRES_DB")
     postgres_user: str = Field(default="postgres", validation_alias="POSTGRES_USER")
     postgres_password: str = Field(default="postgres_password", validation_alias="POSTGRES_PASSWORD")
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
     neo4j_password: str = Field(default="neo4j_password", validation_alias="NEO4J_PASSWORD")
 
     # Redis Configuration
+    redis_url: str = Field(default="", validation_alias="REDIS_URL")
     redis_host: str = Field(default="localhost", validation_alias="REDIS_HOST")
     redis_port: int = Field(default=6379, validation_alias="REDIS_PORT")
 

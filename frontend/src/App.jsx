@@ -190,13 +190,30 @@ function Dashboard({ token }) {
   }, [token])
 
   const comp = health.components || {}
-  const svc = (k,label) => (
-    <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
-      <span className={`health-dot ${comp[k]==='healthy'?'health-healthy':'health-unhealthy'}`}/>
-      <span style={{fontSize:13,flex:1}}>{label}</span>
-      <span style={{fontSize:11,color:comp[k]==='healthy'?'var(--green)':'var(--red)'}}>{comp[k]||'unknown'}</span>
-    </div>
-  )
+  const getStatusInfo = (k, val) => {
+    if (val === 'healthy') return { className: 'health-healthy', color: 'var(--green)', text: 'healthy' }
+    
+    // For optional/cloud-bypassed services, show a helpful offline status instead of red unhealthy
+    if (k === 'redis') {
+      return { className: 'health-offline', color: 'var(--orange)', text: 'offline (bypassed)' }
+    }
+    if (k === 'llama_cpp') {
+      return { className: 'health-offline', color: 'var(--orange)', text: 'offline (fallback active)' }
+    }
+    
+    return { className: 'health-unhealthy', color: 'var(--red)', text: val || 'unhealthy' }
+  }
+
+  const svc = (k, label) => {
+    const status = getStatusInfo(k, comp[k])
+    return (
+      <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0',borderBottom:'1px solid var(--border)'}}>
+        <span className={`health-dot ${status.className}`}/>
+        <span style={{fontSize:13,flex:1}}>{label}</span>
+        <span style={{fontSize:11,color:status.color}}>{status.text}</span>
+      </div>
+    )
+  }
 
   return (
     <div className="page fade-in">

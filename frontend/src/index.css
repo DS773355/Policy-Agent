@@ -199,6 +199,7 @@ tr:last-child td { border-bottom: none; }
 .health-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
 .health-healthy { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
 .health-unhealthy { background: var(--red); }
+.health-offline { background: var(--orange); }
 
 /* Spinner */
 .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }

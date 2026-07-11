@@ -2,14 +2,20 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import './index.css'
 
 const getDefaultApi = () => {
-  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    const stored = localStorage.getItem('POLICY_AGENT_API_URL')
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  const stored = localStorage.getItem('POLICY_AGENT_API_URL')
+
+  if (isLocal) {
     if (stored && (stored.includes('localhost') || stored.includes('127.0.0.1') || stored.includes('ngrok') || stored.includes('10.'))) {
       return stored
     }
     return 'http://localhost:8000'
+  } else {
+    if (stored && stored.startsWith('https://') && !stored.includes('localhost') && !stored.includes('127.0.0.1')) {
+      return stored
+    }
+    return import.meta.env.VITE_API_URL || 'https://policy-agent-9773.onrender.com'
   }
-  return localStorage.getItem('POLICY_AGENT_API_URL') || import.meta.env.VITE_API_URL || 'https://policy-agent-9773.onrender.com'
 }
 
 let API = getDefaultApi()

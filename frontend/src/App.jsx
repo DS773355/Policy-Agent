@@ -1,10 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './index.css'
 
-// In local dev this defaults to http://localhost:8000.
-// On Netlify (or any cloud), the VITE_API_URL env var or the production fallback is used.
-// Users can override this URL in the UI (e.g. to use an HTTPS ngrok tunnel for mobile access).
-let API = localStorage.getItem('POLICY_AGENT_API_URL') || import.meta.env.VITE_API_URL || 'https://policy-agent-9773.onrender.com'
+const getDefaultApi = () => {
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    const stored = localStorage.getItem('POLICY_AGENT_API_URL')
+    if (stored && (stored.includes('localhost') || stored.includes('127.0.0.1') || stored.includes('ngrok') || stored.includes('10.'))) {
+      return stored
+    }
+    return 'http://localhost:8000'
+  }
+  return localStorage.getItem('POLICY_AGENT_API_URL') || import.meta.env.VITE_API_URL || 'https://policy-agent-9773.onrender.com'
+}
+
+let API = getDefaultApi()
 
 const setApiUrl = (url) => {
   let cleaned = url.trim()
@@ -12,7 +20,14 @@ const setApiUrl = (url) => {
     cleaned = cleaned.slice(0, -1)
   }
   API = cleaned
-  localStorage.setItem('POLICY_AGENT_API_URL', cleaned)
+  const defaultApi = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:8000'
+    : 'https://policy-agent-9773.onrender.com'
+  if (cleaned !== defaultApi) {
+    localStorage.setItem('POLICY_AGENT_API_URL', cleaned)
+  } else {
+    localStorage.removeItem('POLICY_AGENT_API_URL')
+  }
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
